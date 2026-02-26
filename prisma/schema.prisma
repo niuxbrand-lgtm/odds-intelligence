@@ -1,7 +1,7 @@
-// Odds Intelligence - Data Model (SQLite for local development)
+// Odds Intelligence - Data Model (PostgreSQL for production)
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
