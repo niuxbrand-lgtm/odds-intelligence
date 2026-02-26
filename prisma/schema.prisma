@@ -1,0 +1,346 @@
+// Odds Intelligence - Data Model
+// Aplicación de detección de arbitraje deportivo
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== CORE ENTITIES ====================
+
+/// Deportes soportados (esports, MMA, tenis challenger, ligas menores fútbol)
+model Sport {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "esports_cs2", "mma_ufc", "tennis_challenger"
+  name        String   // e.g., "Counter-Strike 2", "UFC/MMA", "ATP Challenger"
+  category    String   // "esports", "combat_sports", "tennis", "football"
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  events      Event[]
+  marketTypes MarketType[]
+}
+
+/// Tipos de mercado disponibles (moneyline, handicap, over/under, etc.)
+model MarketType {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "h2h", "spreads", "totals", "map_winner"
+  name        String   // e.g., "Match Winner", "Handicap", "Over/Under"
+  description String?
+  isThreeWay  Boolean  @default(false) // true para 1X2, false para 2-way
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  
+  sportId     String?
+  sport       Sport?   @relation(fields: [sportId], references: [id])
+  oddsSnapshots OddsSnapshot[]
+}
+
+/// Competiciones/Ligas (ej: ESL Pro League, UFC Fight Night, Challenger de Lyon)
+model Competition {
+  id          String   @id @default(cuid())
+  externalId  String?  @unique // ID del proveedor externo
+  name        String
+  sportId     String
+  country     String?
+  tier        Int      @default(2) // 1=élite, 2=profesional, 3=semipro, 4=amateur
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  sport       Sport    @relation(fields: [sportId], references: [id])
+  events      Event[]
+}
+
+/// Eventos deportivos (partidos, peleas, mapas)
+model Event {
+  id              String   @id @default(cuid())
+  externalId      String?  @unique // ID del proveedor
+  competitionId   String
+  homeTeam        String
+  awayTeam        String?
+  homePlayer      String?  // Para deportes individuales (tenis, MMA)
+  awayPlayer      String?
+  commenceTime    DateTime // Fecha/hora inicio del evento
+  status          String   @default("scheduled") // scheduled, live, ended, cancelled
+  sportKey        String
+  lastSyncAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  competition     Competition @relation(fields: [competitionId], references: [id])
+  oddsSnapshots   OddsSnapshot[]
+  arbitrageOps    ArbitrageOpportunity[]
+  
+  @@index([commenceTime])
+  @@index([status])
+  @@index([sportKey])
+}
+
+/// Bookmakers y casas de apuestas
+model Bookmaker {
+  id              String   @id @default(cuid())
+  key             String   @unique // "polymarket", "draftkings", "fanduel", etc.
+  name            String
+  type           String   @default("bookmaker") // "bookmaker", "exchange", "prediction_market"
+  commission      Float    @default(0.0) // Comisión por defecto (ej: 0.02 = 2%)
+  isActive       Boolean  @default(true)
+  lastSyncAt     DateTime?
+  apiEndpoint    String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  oddsSnapshots  OddsSnapshot[]
+}
+
+// ==================== ODDS DATA ====================
+
+/// Snapshots de cuotas con timestamp
+model OddsSnapshot {
+  id              String   @id @default(cuid())
+  eventId         String
+  bookmakerId     String
+  marketTypeId    String
+  
+  // Valores de cuotas (soporta 2-way y 3-way)
+  oddsHome        Float    // Cuota local/favorito
+  oddsDraw        Float?   // Cuota empate (solo 3-way)
+  oddsAway        Float    // Cuota visitante/underdog
+  
+  // Para handicap/totals
+  point          Float?   // Línea del handicap o total
+  oddsOver       Float?   // Cuota over (para totals)
+  oddsUnder      Float?   // Cuota under (para totals)
+  
+  // Probabilidades implícitas (calculadas)
+  impliedProbHome Float?
+  impliedProbDraw Float?
+  impliedProbAway Float?
+  margin          Float?   // Margen del bookmaker
+  
+  // Metadata
+  rawResponse     String?  // Respuesta JSON original
+  capturedAt      DateTime @default(now())
+  sourceApi       String   // "the_odds_api", "polymarket", "manual"
+  latency         Int?     // ms desde la petición hasta la respuesta
+  
+  event           Event        @relation(fields: [eventId], references: [id])
+  bookmaker       Bookmaker    @relation(fields: [bookmakerId], references: [id])
+  marketType      MarketType   @relation(fields: [marketTypeId], references: [id])
+  
+  @@index([eventId, bookmakerId, marketTypeId])
+  @@index([capturedAt])
+}
+
+// ==================== ARBITRAGE ENGINE ====================
+
+/// Oportunidades de arbitraje detectadas
+model ArbitrageOpportunity {
+  id                  String   @id @default(cuid())
+  eventId             String
+  
+  // Tipo de mercado
+  marketType          String   // "h2h", "spreads", "totals"
+  isThreeWay          Boolean
+  
+  // Cuotas y bookmakers involucrados
+  bookmakerHomeId     String
+  oddsHome            Float
+  bookmakerAwayId     String
+  oddsAway            Float
+  bookmakerDrawId     String?  // Solo para 3-way
+  oddsDraw            Float?
+  
+  // Cálculos de arbitraje
+  totalImpliedProb    Float    // Suma de probabilidades implícitas
+  arbitrageMargin     Float    // 1 - totalImpliedProb (positivo = arbitraje)
+  profitPercentage    Float    // % de beneficio garantizado
+  
+  // Stakes recomendados (por $100 total stake)
+  recommendedStakeHome Float
+  recommendedStakeAway Float
+  recommendedStakeDraw Float?
+  expectedProfit       Float
+  
+  // Ajustes por fricción
+  commissionAdjustment Float   @default(0) // Ajuste por comisiones
+  slippageEstimate    Float    @default(0) // Estimación de slippage
+  latencyRisk         String   @default("low") // low, medium, high
+  
+  // Liquidez y límites
+  maxStakeEstimate    Float?   // Estimación de stake máximo
+  liquidityScore      Int      @default(50) // 0-100
+  
+  // Clasificación de calidad
+  qualityScore        Int      @default(0) // 0-100 (combina margen, liquidez, riesgo)
+  qualityGrade        String   @default("C") // A, B, C, D, F
+  
+  // Estado
+  status              String   @default("active") // active, expired, executed, dismissed
+  detectedAt          DateTime @default(now())
+  expiresAt           DateTime? // Estimación de cuándo expira la oportunidad
+  validUntil          DateTime? // Última validación de que las cuotas siguen vigentes
+  
+  // Auditoría
+  calculationVersion  String   @default("1.0")
+  notes               String?
+  
+  event               Event    @relation(fields: [eventId], references: [id])
+  alerts              Alert[]
+  
+  @@index([detectedAt])
+  @@index([status])
+  @@index([arbitrageMargin])
+  @@index([qualityGrade])
+}
+
+// ==================== ALERTS & NOTIFICATIONS ====================
+
+/// Alertas enviadas
+model Alert {
+  id              String   @id @default(cuid())
+  opportunityId   String
+  channel         String   // "telegram", "email", "webhook", "push"
+  recipient       String   // ID del chat, email, URL webhook
+  
+  // Contenido
+  title           String
+  message         String
+  dataJson        String?  // JSON con datos completos
+  
+  // Estado de envío
+  status          String   @default("pending") // pending, sent, failed
+  sentAt          DateTime?
+  errorMessage    String?
+  retryCount      Int      @default(0)
+  
+  // Configuración de usuario que generó la alerta
+  triggeredBy     String?  // ID de configuración de usuario
+  triggerRule     String?  // Regla que disparó la alerta
+  
+  opportunity     ArbitrageOpportunity @relation(fields: [opportunityId], references: [id])
+  
+  @@index([status])
+  @@index([channel])
+  @@index([sentAt])
+}
+
+// ==================== USER CONFIGURATION ====================
+
+/// Configuración de usuario
+model UserSettings {
+  id              String   @id @default(cuid())
+  
+  // Filtros de alerta
+  minMargin       Float    @default(0.02) // Margen mínimo de arbitraje (2%)
+  maxLatencyRisk  String   @default("medium") // low, medium, high
+  minLiquidity    Int      @default(30) // Score mínimo de liquidez
+  
+  // Deportes y mercados preferidos
+  sportsFilter    String?  // JSON array de sport keys
+  marketsFilter   String?  // JSON array de market types
+  bookmakersFilter String? // JSON array de bookmaker keys
+  competitionsFilter String? // JSON array de competition IDs
+  
+  // Límites de exposición
+  maxStakePerBet  Float    @default(100) // Stake máximo por apuesta
+  maxDailyExposure Float   @default(1000) // Exposición diaria máxima
+  
+  // Canales de notificación
+  telegramChatId  String?
+  telegramEnabled Boolean  @default(false)
+  emailEnabled    Boolean  @default(false)
+  emailAddress    String?
+  webhookUrl      String?
+  webhookEnabled  Boolean  @default(false)
+  
+  // Horarios
+  quietHoursStart String? // "22:00"
+  quietHoursEnd   String? // "08:00"
+  timezone        String  @default("Europe/Madrid")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// API Keys y secrets (encriptados en producción)
+model ApiCredential {
+  id              String   @id @default(cuid())
+  provider        String   @unique // "the_odds_api", "polymarket", "telegram_bot"
+  apiKey          String?  // API key (encriptar en prod)
+  apiSecret       String?  // Secret (encriptar en prod)
+  isActive        Boolean  @default(true)
+  rateLimitPerMin Int?
+  rateLimitPerDay Int?
+  currentUsage    Int      @default(0)
+  usageResetAt    DateTime?
+  lastUsedAt      DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==================== AUDIT & LOGGING ====================
+
+/// Log de auditoría
+model AuditLog {
+  id              String   @id @default(cuid())
+  action          String   // "fetch_odds", "detect_arb", "send_alert", "update_settings"
+  entityType      String   // "event", "odds", "arbitrage", "alert"
+  entityId        String?
+  
+  dataBefore      String?  // JSON del estado anterior
+  dataAfter       String?  // JSON del estado posterior
+  
+  source          String   // "api", "worker", "manual"
+  ipAddress       String?
+  userAgent       String?
+  
+  success         Boolean  @default(true)
+  errorMessage    String?
+  
+  duration        Int?     // Duración en ms
+  createdAt       DateTime @default(now())
+  
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+/// Métricas del sistema
+model SystemMetric {
+  id              String   @id @default(cuid())
+  metricName      String
+  metricValue     Float
+  unit            String?  // "ms", "count", "percentage"
+  tags            String?  // JSON con tags adicionales
+  recordedAt      DateTime @default(now())
+  
+  @@index([metricName, recordedAt])
+}
+
+// ==================== SYNC STATE ====================
+
+/// Estado de sincronización por proveedor/deporte
+model SyncState {
+  id              String   @id @default(cuid())
+  provider        String   // "the_odds_api", "polymarket"
+  sportKey        String?
+  lastSyncAt      DateTime?
+  lastSuccessAt   DateTime?
+  lastErrorAt     DateTime?
+  lastError       String?
+  consecutiveErrors Int    @default(0)
+  totalSyncs      Int      @default(0)
+  totalErrors     Int      @default(0)
+  isActive        Boolean  @default(true)
+  nextSyncAt      DateTime?
+  
+  @@unique([provider, sportKey])
+}
