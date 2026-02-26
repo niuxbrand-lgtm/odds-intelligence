@@ -145,8 +145,15 @@ export class PolymarketConnector {
       params.tag = tag
     }
 
-    const response = await this.fetch<PolymarketMarket[]>('/markets', params)
-    return response
+    const response = await this.fetch<PolymarketMarket[] | { markets: PolymarketMarket[] }>('/markets', params)
+    
+    // Handle both array and object response formats
+    if (Array.isArray(response)) {
+      return response
+    } else if (response && 'markets' in response) {
+      return response.markets
+    }
+    return []
   }
 
   /**

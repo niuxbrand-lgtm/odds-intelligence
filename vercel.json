@@ -1,0 +1,11 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["mad1"],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "ODDS_API_KEY": "@odds_api_key",
+    "TELEGRAM_BOT_TOKEN": "@telegram_bot_token"
+  }
+}
