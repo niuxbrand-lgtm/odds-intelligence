@@ -22,8 +22,8 @@ model Sport {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  events      Event[]
-  marketTypes MarketType[]
+  competitions Competition[]
+  marketTypes  MarketType[]
 }
 
 /// Tipos de mercado disponibles (moneyline, handicap, over/under, etc.)
@@ -62,7 +62,7 @@ model Event {
   id              String   @id @default(cuid())
   externalId      String?  @unique // ID del proveedor
   competitionId   String
-  homeTeam        String
+  homeTeam        String?  // Para deportes de equipo
   awayTeam        String?
   homePlayer      String?  // Para deportes individuales (tenis, MMA)
   awayPlayer      String?
@@ -87,16 +87,16 @@ model Bookmaker {
   id              String   @id @default(cuid())
   key             String   @unique // "polymarket", "draftkings", "fanduel", etc.
   name            String
-  type           String   @default("bookmaker") // "bookmaker", "exchange", "prediction_market"
+  type            String   @default("bookmaker") // "bookmaker", "exchange", "prediction_market"
   commission      Float    @default(0.0) // Comisión por defecto (ej: 0.02 = 2%)
-  isActive       Boolean  @default(true)
-  lastSyncAt     DateTime?
-  apiEndpoint    String?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive        Boolean  @default(true)
+  lastSyncAt      DateTime?
+  apiEndpoint     String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   
-  oddsSnapshots  OddsSnapshot[]
+  oddsSnapshots   OddsSnapshot[]
 }
 
 // ==================== ODDS DATA ====================
@@ -114,9 +114,9 @@ model OddsSnapshot {
   oddsAway        Float    // Cuota visitante/underdog
   
   // Para handicap/totals
-  point          Float?   // Línea del handicap o total
-  oddsOver       Float?   // Cuota over (para totals)
-  oddsUnder      Float?   // Cuota under (para totals)
+  point           Float?   // Línea del handicap o total
+  oddsOver        Float?   // Cuota over (para totals)
+  oddsUnder       Float?   // Cuota under (para totals)
   
   // Probabilidades implícitas (calculadas)
   impliedProbHome Float?
@@ -329,18 +329,18 @@ model SystemMetric {
 
 /// Estado de sincronización por proveedor/deporte
 model SyncState {
-  id              String   @id @default(cuid())
-  provider        String   // "the_odds_api", "polymarket"
-  sportKey        String?
-  lastSyncAt      DateTime?
-  lastSuccessAt   DateTime?
-  lastErrorAt     DateTime?
-  lastError       String?
-  consecutiveErrors Int    @default(0)
-  totalSyncs      Int      @default(0)
-  totalErrors     Int      @default(0)
-  isActive        Boolean  @default(true)
-  nextSyncAt      DateTime?
+  id                String    @id @default(cuid())
+  provider          String    // "the_odds_api", "polymarket"
+  sportKey          String?
+  lastSyncAt        DateTime?
+  lastSuccessAt     DateTime?
+  lastErrorAt       DateTime?
+  lastError         String?
+  consecutiveErrors Int       @default(0)
+  totalSyncs        Int       @default(0)
+  totalErrors       Int       @default(0)
+  isActive          Boolean   @default(true)
+  nextSyncAt        DateTime?
   
   @@unique([provider, sportKey])
 }

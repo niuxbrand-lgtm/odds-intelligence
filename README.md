@@ -1,141 +1,332 @@
-# 🚀 Welcome to Z.ai Code Scaffold
+# Odds Intelligence 🎯
 
-A modern, production-ready web application scaffold powered by cutting-edge technologies, designed to accelerate your development with [Z.ai](https://chat.z.ai)'s AI-powered coding assistance.
+**Sistema de detección de arbitraje deportivo en tiempo real**
 
-## ✨ Technology Stack
+Detección automática de oportunidades de arbitraje y value betting en deportes de nicho y ligas menores, con integración de Polymarket y The Odds API.
 
-This scaffold provides a robust foundation built with:
-
-### 🎯 Core Framework
-- **⚡ Next.js 16** - The React framework for production with App Router
-- **📘 TypeScript 5** - Type-safe JavaScript for better developer experience
-- **🎨 Tailwind CSS 4** - Utility-first CSS framework for rapid UI development
-
-### 🧩 UI Components & Styling
-- **🧩 shadcn/ui** - High-quality, accessible components built on Radix UI
-- **🎯 Lucide React** - Beautiful & consistent icon library
-- **🌈 Framer Motion** - Production-ready motion library for React
-- **🎨 Next Themes** - Perfect dark mode in 2 lines of code
-
-### 📋 Forms & Validation
-- **🎣 React Hook Form** - Performant forms with easy validation
-- **✅ Zod** - TypeScript-first schema validation
-
-### 🔄 State Management & Data Fetching
-- **🐻 Zustand** - Simple, scalable state management
-- **🔄 TanStack Query** - Powerful data synchronization for React
-- **🌐 Fetch** - Promise-based HTTP request
-
-### 🗄️ Database & Backend
-- **🗄️ Prisma** - Next-generation TypeScript ORM
-- **🔐 NextAuth.js** - Complete open-source authentication solution
-
-### 🎨 Advanced UI Features
-- **📊 TanStack Table** - Headless UI for building tables and datagrids
-- **🖱️ DND Kit** - Modern drag and drop toolkit for React
-- **📊 Recharts** - Redefined chart library built with React and D3
-- **🖼️ Sharp** - High performance image processing
-
-### 🌍 Internationalization & Utilities
-- **🌍 Next Intl** - Internationalization library for Next.js
-- **📅 Date-fns** - Modern JavaScript date utility library
-- **🪝 ReactUse** - Collection of essential React hooks for modern development
-
-## 🎯 Why This Scaffold?
-
-- **🏎️ Fast Development** - Pre-configured tooling and best practices
-- **🎨 Beautiful UI** - Complete shadcn/ui component library with advanced interactions
-- **🔒 Type Safety** - Full TypeScript configuration with Zod validation
-- **📱 Responsive** - Mobile-first design principles with smooth animations
-- **🗄️ Database Ready** - Prisma ORM configured for rapid backend development
-- **🔐 Auth Included** - NextAuth.js for secure authentication flows
-- **📊 Data Visualization** - Charts, tables, and drag-and-drop functionality
-- **🌍 i18n Ready** - Multi-language support with Next Intl
-- **🚀 Production Ready** - Optimized build and deployment settings
-- **🤖 AI-Friendly** - Structured codebase perfect for AI assistance
-
-## 🚀 Quick Start
+## 🚀 Inicio Rápido
 
 ```bash
-# Install dependencies
+# 1. Clonar y configurar
+cp .env.example .env
+# Edita .env con tus API keys
+
+# 2. Instalar dependencias y preparar DB
 bun install
+bun run db:push
 
-# Start development server
+# 3. Poblar datos de demostración
+bun run seed
+
+# 4. Iniciar la aplicación
 bun run dev
-
-# Build for production
-bun run build
-
-# Start production server
-bun start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see your application running.
+Abre http://localhost:3000 en tu navegador.
 
-## 🤖 Powered by Z.ai
+## 📋 Requisitos Previos
 
-This scaffold is optimized for use with [Z.ai](https://chat.z.ai) - your AI assistant for:
+### APIs Necesarias
 
-- **💻 Code Generation** - Generate components, pages, and features instantly
-- **🎨 UI Development** - Create beautiful interfaces with AI assistance  
-- **🔧 Bug Fixing** - Identify and resolve issues with intelligent suggestions
-- **📝 Documentation** - Auto-generate comprehensive documentation
-- **🚀 Optimization** - Performance improvements and best practices
+| API | Propósito | Costo | Enlace |
+|-----|-----------|-------|--------|
+| **The Odds API** | Cuotas de bookmakers tradicionales | Free: 500 req/mes, Pro: $500/mes | [the-odds-api.com](https://the-odds-api.com/) |
+| **Polymarket** | Mercados de predicción deportiva | Gratuito | Incluido |
+| **Telegram Bot** (opcional) | Alertas en tiempo real | Gratuito | Habla con @BotFather |
+| **Resend** (opcional) | Alertas por email | Free: 3,000 emails/mes | [resend.com](https://resend.com/) |
 
-Ready to build something amazing? Start chatting with Z.ai at [chat.z.ai](https://chat.z.ai) and experience the future of AI-powered development!
+### Límites y Rate Limits
 
-## 📁 Project Structure
+| Fuente | Rate Limit | Notas |
+|--------|------------|-------|
+| The Odds API | 1 req/segundo | Plan Pro: más requests |
+| Polymarket | ~10 req/segundo | Sin límite oficial documentado |
+
+## 🏗️ Arquitectura
 
 ```
-src/
-├── app/                 # Next.js App Router pages
-├── components/          # Reusable React components
-│   └── ui/             # shadcn/ui components
-├── hooks/              # Custom React hooks
-└── lib/                # Utility functions and configurations
+┌─────────────────┐     ┌─────────────────┐
+│  The Odds API   │     │   Polymarket    │
+│  (Bookmakers)   │     │ (Predictions)   │
+└────────┬────────┘     └────────┬────────┘
+         │                       │
+         └───────────┬───────────┘
+                     │
+                     ▼
+         ┌─────────────────────┐
+         │   Connectors Layer  │
+         │  - Rate Limiting    │
+         │  - Error Handling   │
+         └──────────┬──────────┘
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │  Normalizer Engine  │
+         │  - Entity Resolution│
+         │  - Market Unification│
+         └──────────┬──────────┘
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │  Arbitrage Engine   │
+         │  - 2-way & 3-way    │
+         │  - Fee Adjustment   │
+         │  - Quality Scoring  │
+         └──────────┬──────────┘
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │   SQLite Database   │
+         │   + Prisma ORM      │
+         └──────────┬──────────┘
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │   Next.js API       │
+         │   + Dashboard UI    │
+         └──────────┬──────────┘
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │  Alert Dispatcher   │
+         │  - Telegram         │
+         │  - Email            │
+         │  - Webhook          │
+         └─────────────────────┘
 ```
 
-## 🎨 Available Features & Components
+## 📊 Deportes Soportados
 
-This scaffold includes a comprehensive set of modern web development tools:
+### Prioridad Alta (Nicho/Ligas Menores)
 
-### 🧩 UI Components (shadcn/ui)
-- **Layout**: Card, Separator, Aspect Ratio, Resizable Panels
-- **Forms**: Input, Textarea, Select, Checkbox, Radio Group, Switch
-- **Feedback**: Alert, Toast (Sonner), Progress, Skeleton
-- **Navigation**: Breadcrumb, Menubar, Navigation Menu, Pagination
-- **Overlay**: Dialog, Sheet, Popover, Tooltip, Hover Card
-- **Data Display**: Badge, Avatar, Calendar
+- **E-sports**: Counter-Strike 2, League of Legends, Valorant, Dota 2
+- **MMA/UFC**: Preliminares, Fight Nights
+- **Tenis**: ATP Challenger, ITF Futures
+- **Fútbol**: Ligas secundarias (Argentina, Brasil, Chile, Colombia, Australia, etc.)
 
-### 📊 Advanced Data Features
-- **Tables**: Powerful data tables with sorting, filtering, pagination (TanStack Table)
-- **Charts**: Beautiful visualizations with Recharts
-- **Forms**: Type-safe forms with React Hook Form + Zod validation
+### Fuentes de Datos
 
-### 🎨 Interactive Features
-- **Animations**: Smooth micro-interactions with Framer Motion
-- **Drag & Drop**: Modern drag-and-drop functionality with DND Kit
-- **Theme Switching**: Built-in dark/light mode support
+| Deporte | Fuentes |
+|---------|---------|
+| E-sports | Polymarket, The Odds API (DraftKings, FanDuel, etc.) |
+| MMA | Polymarket, The Odds API |
+| Tenis Challenger | Polymarket, The Odds API |
+| Fútbol Ligas Menores | The Odds API |
 
-### 🔐 Backend Integration
-- **Authentication**: Ready-to-use auth flows with NextAuth.js
-- **Database**: Type-safe database operations with Prisma
-- **API Client**: HTTP requests with Fetch + TanStack Query
-- **State Management**: Simple and scalable with Zustand
+## 🧮 Motor de Arbitraje
 
-### 🌍 Production Features
-- **Internationalization**: Multi-language support with Next Intl
-- **Image Optimization**: Automatic image processing with Sharp
-- **Type Safety**: End-to-end TypeScript with Zod validation
-- **Essential Hooks**: 100+ useful React hooks with ReactUse for common patterns
+### Fórmulas Implementadas
 
-## 🤝 Get Started with Z.ai
+#### Arbitraje 2-way
+```
+Probabilidad Implícita Total = (1/odds₁) + (1/odds₂)
+Margen de Arbitraje = 1 - Probabilidad Total
+% Beneficio = Margen / Probabilidad Total
+```
 
-1. **Clone this scaffold** to jumpstart your project
-2. **Visit [chat.z.ai](https://chat.z.ai)** to access your AI coding assistant
-3. **Start building** with intelligent code generation and assistance
-4. **Deploy with confidence** using the production-ready setup
+**Ejemplo:**
+- NaVi @ 2.15 (Polymarket)
+- FaZe @ 1.95 (DraftKings)
+- Probabilidad Total = 0.465 + 0.513 = 0.978
+- Margen = 1 - 0.978 = 0.022 (2.2%)
+- Beneficio = 2.2%
+
+#### Arbitraje 3-way (1X2)
+```
+Probabilidad Total = (1/odds₁) + (1/oddsX) + (1/odds₂)
+```
+
+### Staking Proporcional
+
+Para un stake total de $100:
+```
+Stakeᵢ = $100 × (Probabilidad Implícitaᵢ / Probabilidad Total)
+```
+
+### Ajustes por Fricción
+
+- **Comisiones**: Se ajustan las probabilidades implícitas
+- **Slippage**: Estimación del 0.5% por defecto
+- **Latencia**: Se clasifica en low/medium/high
+
+### Scoring de Calidad
+
+| Factor | Puntos Máx |
+|--------|------------|
+| Margen de beneficio | 40 |
+| Liquidez | 25 |
+| Fiabilidad bookmaker | 35 |
+| Penalización latencia | -10 a -25 |
+
+**Grados:** A (80+), B (65+), C (50+), D (35+), F (<35)
+
+## 🔔 Sistema de Alertas
+
+### Telegram
+```bash
+# 1. Crear bot con @BotFather
+/newbot
+# 2. Obtener Chat ID con @userinfobot
+/start
+# 3. Configurar en Settings
+```
+
+### Email (Resend)
+```bash
+# 1. Crear cuenta en resend.com
+# 2. Obtener API key
+# 3. Configurar en .env
+```
+
+### Webhook
+```json
+POST a tu URL configurada:
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "type": "arbitrage_opportunity",
+  "data": { /* oportunidad completa */ }
+}
+```
+
+## 📁 Estructura del Proyecto
+
+```
+odds-intelligence/
+├── prisma/
+│   └── schema.prisma      # Modelo de datos
+├── src/
+│   ├── app/
+│   │   ├── api/           # Endpoints REST
+│   │   │   ├── opportunities/
+│   │   │   ├── events/
+│   │   │   ├── alerts/
+│   │   │   ├── settings/
+│   │   │   ├── sync/
+│   │   │   └── health/
+│   │   └── page.tsx       # Dashboard principal
+│   ├── components/
+│   │   ├── dashboard/
+│   │   ├── opportunities/
+│   │   ├── settings/
+│   │   └── alerts/
+│   └── lib/
+│       ├── connectors/    # APIs externas
+│       │   ├── the-odds-api.ts
+│       │   └── polymarket.ts
+│       ├── arbitrage/     # Motor de cálculo
+│       │   └── engine.ts
+│       ├── alerts/        # Sistema de alertas
+│       │   └── notifier.ts
+│       ├── normalizer/    # Normalización de datos
+│       └── db.ts          # Prisma client
+├── seed.ts                # Datos de demostración
+├── docker-compose.yml     # Deploy con Docker
+└── .env.example           # Variables de entorno
+```
+
+## 🐳 Docker
+
+```bash
+# Construir e iniciar
+docker-compose up -d
+
+# Ver logs
+docker-compose logs -f
+
+# Detener
+docker-compose down
+```
+
+## 🧪 Testing
+
+```bash
+# Tests unitarios
+bun test
+
+# Linting
+bun run lint
+```
+
+## ⚖️ Cumplimiento Legal
+
+### ✅ Lo que SÍ hace la aplicación
+
+- Usa **solo APIs oficiales autorizadas**
+- Lee datos de fuentes con licencia (The Odds API, Polymarket API pública)
+- **No ejecuta apuestas automáticamente**
+- Informa sobre oportunidades de arbitraje
+- Cumple con ToS de los proveedores de datos
+
+### ❌ Lo que NO hace
+
+- No hace scraping de sitios web
+- No evade límites o detección
+- No ejecuta apuestas automáticamente
+- No almacena datos personales de apostadores
+
+### Aviso Legal
+
+Esta aplicación es **solo para fines informativos y educativos**. El arbitraje deportivo:
+- Puede violar los términos de servicio de algunas casas de apuestas
+- Puede resultar en limitaciones de cuenta
+- Requiere investigación propia antes de actuar
+- No garantiza beneficios
+
+**El usuario es responsable de verificar la legalidad en su jurisdicción.**
+
+## 🔧 Desarrollo
+
+### Añadir nuevo conector
+
+```typescript
+// src/lib/connectors/mi-conector.ts
+export class MiConector {
+  async getEvents(): Promise<NormalizedEvent[]> {
+    // Implementar
+  }
+  
+  async getOdds(): Promise<NormalizedOdds[]> {
+    // Implementar
+  }
+}
+```
+
+### Añadir nuevo canal de alertas
+
+```typescript
+// src/lib/alerts/notifier.ts
+export class MiCanalNotifier {
+  async sendAlert(opportunity: OpportunityWithDetails): Promise<Result> {
+    // Implementar
+  }
+}
+```
+
+## 📈 Métricas y Observabilidad
+
+- Endpoint `/api/health` para health checks
+- Logs de sincronización en consola
+- Estado de conexiones en dashboard
+
+## 🆘 Troubleshooting
+
+### Error: "No opportunities found"
+- Verifica que el seed se ejecutó: `bun run seed`
+- Comprueba las API keys en `.env`
+
+### Error: "Database connection failed"
+- Verifica que `db:push` se ejecutó
+- Comprueba permisos de archivo SQLite
+
+### Telegram no envía alertas
+- Verifica el bot token
+- Confirma el Chat ID con @userinfobot
+- El bot debe haber sido iniciado con `/start`
+
+## 📄 Licencia
+
+MIT License - Uso educativo e informativo.
 
 ---
 
-Built with ❤️ for the developer community. Supercharged by [Z.ai](https://chat.z.ai) 🚀
+**Odds Intelligence** - Detección de arbitraje deportivo ética y legal
