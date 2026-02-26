@@ -1,26 +1,53 @@
 import { NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 
 export async function GET() {
-  const health = {
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    services: {
-      database: 'unknown',
-      odds_api: !!process.env.ODDS_API_KEY ? 'configured' : 'not_configured',
-      telegram: !!process.env.TELEGRAM_BOT_TOKEN ? 'configured' : 'not_configured',
-      email: !!process.env.RESEND_API_KEY ? 'configured' : 'not_configured',
-    },
+  const services = {
+    database: 'error',
+    odds_api: 'not_configured',
+    telegram: 'not_configured',
+    email: 'not_configured',
   }
 
+  // Test database
   try {
-    const { db } = await import('@/lib/db')
+    // Try a simple query
     await db.$queryRaw`SELECT 1`
-    health.services.database = 'connected'
-  } catch {
-    health.status = 'degraded'
-    health.services.database = 'error'
+    
+    // Try to get or create settings
+    let settings = await db.userSettings.findFirst()
+    if (!settings) {
+      settings = await db.userSettings.create({
+        data: {
+          minMargin: 0.02,
+          telegramEnabled: false,
+          telegramChatId: '',
+          emailEnabled: false,
+        }
+      })
+    }
+    services.database = 'connected'
+  } catch (dbError) {
+    console.error('Database error:', dbError)
+    services.database = 'error'
   }
 
-  return NextResponse.json(health)
+  // Check ODDS_API_KEY
+  if (process.env.ODDS_API_KEY && process.env.ODDS_API_KEY.length > 10) {
+    services.odds_api = 'configured'
+  }
+
+  // Check TELEGRAM_BOT_TOKEN
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    services.telegram = 'configured'
+  }
+
+  const allOk = services.database === 'connected'
+
+  return NextResponse.json({
+    status: allOk ? 'ok' : 'degraded',
+    timestamp: new Date(),
+    version: '1.0.0',
+    services,
+  })
 }
