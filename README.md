@@ -1,4 +1,4 @@
-# Odds Intelligence 🎯
+# Odds Intelligence Cruzadx 🎯
 
 **Sistema de detección de arbitraje deportivo en tiempo real**
 
